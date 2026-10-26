@@ -1,0 +1,263 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit config for PokeWeather. Keys validated against schema.v2.json.
+# NOTE: the CodeRabbit GitHub App must be installed on the repo by its owner
+# for any of this to take effect.
+
+language: "en-US"
+early_access: false
+
+reviews:
+  # "chill" = fewer, higher-signal comments (decision: keep noise low).
+  profile: "chill"
+  high_level_summary: true
+  poem: false
+  in_progress_fortune: false
+  collapse_walkthrough: true
+
+  # Approvals are disabled on purpose: humans approve and merge.
+  # Side effect (schema): auto_approvals.enabled is also what turns
+  # "error"-mode findings into "request changes". With it off, error-mode
+  # pre-merge checks are reported as failing checks/comments, but CodeRabbit
+  # does not itself submit a blocking review; enforce blocking with branch
+  # protection (require the CodeRabbit status check) if needed.
+  auto_approvals:
+    enabled: false
+    allow_author_approval: false
+
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+    base_branches:
+      - "main"
+
+  path_filters:
+    - "!**/node_modules/**"
+    - "!api/package-lock.json"
+    - "!**/*.min.*"
+    - "!**/*.svg"
+
+  path_instructions:
+    - path: "api/src/**"
+      instructions: |
+        - SQL must always be parameterized ($1..$n); never concatenate or interpolate input into queries.
+        - Validate all external input (schema/whitelist) before use.
+        - Error responses must not leak stack traces or internal details.
+        - Calls to Open-Meteo/PokeAPI need a timeout and a response size limit; build URLs from validated parts only (no SSRF).
+        - No secrets in code or logs.
+        - In-memory caches must have a max size and a TTL.
+    - path: "api/src/routes/**"
+      instructions: |
+        - Rate limiting and payload size limits must be in place.
+        - HTTP status codes must be consistent (400 validation, 404 not found, 429, 502/504 upstream).
+        - Validate lat/lon ranges and name inputs.
+    - path: "api/test/**"
+      instructions: |
+        - Cover error and edge cases, not only the happy path.
+        - No real network calls; mock upstream services.
+    - path: "web/public/**"
+      instructions: |
+        - Never use innerHTML with API data; use textContent / DOM APIs.
+        - No inline scripts or styles, and no CDNs (CSP is strict).
+        - Accessibility: visible focus, sufficient contrast, proper aria attributes.
+    - path: "web/nginx.conf"
+      instructions: &nginx_rules |
+        - CSP must stay strict: no 'unsafe-inline' / 'unsafe-eval'.
+        - Keep X-Content-Type-Options nosniff, Referrer-Policy, Permissions-Policy and frame-ancestors.
+        - server_tokens must be off.
+        - Proxy /api only to the api service.
+    - path: "web/security-headers.conf"
+      instructions: *nginx_rules
+    - path: "**/Dockerfile"
+      instructions: |
+        - Base images pinned by version AND digest.
+        - Multi-stage build; run as non-root.
+        - Use `npm ci --omit=dev`.
+        - No secrets in ARG/ENV.
+    - path: "compose.yaml"
+      instructions: |
+        - Keep read_only, cap_drop ALL, no-new-privileges, resource limits and the internal network.
+        - BLOCKING: publishing db or api ports to the host, or a default/hardcoded POSTGRES_PASSWORD.
+    - path: "db/migrations/**"
+      instructions: |
+        - Migrations must be idempotent and avoid long-held locks.
+        - Declare constraints and indexes explicitly.
+        - No sensitive data.
+    - path: ".env.example"
+      instructions: |
+        - Placeholders only. A value that looks like a real secret is critical.
+    - path: "README.md"
+      instructions: |
+        - Docs must match the actual behavior, ports and commands.
+    - path: "scripts/**"
+      instructions: |
+        - Shell scripts must start with `set -euo pipefail`.
+
+  # Only labels from this list are suggested.
+  labeling_instructions:
+    - label: "api"
+      instructions: "Changes under api/."
+    - label: "web"
+      instructions: "Changes under web/ (frontend, nginx)."
+    - label: "db"
+      instructions: "Changes under db/ (migrations, schema)."
+    - label: "infra"
+      instructions: "Dockerfiles, compose.yaml, scripts, CI/config."
+    - label: "security"
+      instructions: "Security-relevant changes (headers, hardening, secrets, validation)."
+
+  pre_merge_checks:
+    custom_checks:
+      - name: "No secrets"
+        mode: "error"
+        instructions: |
+          Fail if the PR adds or tracks any .env file, credential, token, private key, or a value in .env.example
+          that looks real (not an obvious placeholder like "change-me" or "<value>"). Also fail on secrets in code,
+          Dockerfiles, compose.yaml, scripts or docs. Never echo the suspected value in the finding.
+      - name: "SQL parametrized"
+        mode: "warning"
+        instructions: |
+          Warn if any SQL in api/ is built with string concatenation or template interpolation of external input
+          instead of parameter placeholders ($1..$n).
+      - name: "Container hardening kept"
+        mode: "warning"
+        instructions: |
+          Warn if the PR publishes db or api ports to the host, or removes read_only, cap_drop ALL,
+          no-new-privileges, resource limits, non-root user, or the internal network (documented db exceptions
+          in README are allowed).
+      - name: "Strict CSP"
+        mode: "warning"
+        instructions: |
+          Warn if the Content-Security-Policy in web/nginx.conf or web/security-headers.conf adds 'unsafe-inline',
+          'unsafe-eval', wildcards, or new external origins, or if web/public adds inline scripts/styles or CDNs.
+      - name: "Docs updated for API/schema changes"
+        mode: "warning"
+        instructions: |
+          Warn if the PR changes API endpoints/behavior (api/src/routes) or the DB schema (db/migrations)
+          without a matching update to README.md.
+
+  # Only tools relevant to this stack (Node/JS, shell, SQL/Postgres, Docker,
+  # nginx/YAML, HTML/CSS, Markdown). Key `gitleaks` is the secret scanner
+  # (labelled Betterleaks in the schema); `trufflehog` is complementary.
+  tools:
+    gitleaks:
+      enabled: true
+    trufflehog:
+      enabled: true
+    hadolint:
+      enabled: true
+    trivy:
+      enabled: true
+    checkov:
+      enabled: true
+    dotenvLint:
+      enabled: true
+    yamllint:
+      enabled: true
+    markdownlint:
+      enabled: true
+    eslint:
+      enabled: true
+    shellcheck:
+      enabled: true
+    htmlhint:
+      enabled: true
+    stylelint:
+      enabled: true
+    squawk:
+      enabled: true
+    sqlfluff:
+      enabled: true
+    osvScanner:
+      enabled: true
+    opengrep:
+      enabled: true
+    semgrep:
+      enabled: true
+    github-checks:
+      enabled: true
+    # Not applicable: no GitHub Actions / CircleCI in this repo.
+    actionlint:
+      enabled: false
+    zizmor:
+      enabled: false
+    circleci:
+      enabled: false
+    # Other languages not used here.
+    ast-grep:
+      enabled: false
+    ruff:
+      enabled: false
+    biome:
+      enabled: false
+    swiftlint:
+      enabled: false
+    phpstan:
+      enabled: false
+    phpmd:
+      enabled: false
+    phpcs:
+      enabled: false
+    golangci-lint:
+      enabled: false
+    tflint:
+      enabled: false
+    detekt:
+      enabled: false
+    flake8:
+      enabled: false
+    fbinfer:
+      enabled: false
+    fortitudeLint:
+      enabled: false
+    rubocop:
+      enabled: false
+    buf:
+      enabled: false
+    regal:
+      enabled: false
+    pmd:
+      enabled: false
+    clang:
+      enabled: false
+    cppcheck:
+      enabled: false
+    verilator:
+      enabled: false
+    clippy:
+      enabled: false
+    prismaLint:
+      enabled: false
+    pylint:
+      enabled: false
+    oxc:
+      enabled: false
+    shopifyThemeCheck:
+      enabled: false
+    luacheck:
+      enabled: false
+    brakeman:
+      enabled: false
+    checkmake:
+      enabled: false
+    oasdiff:
+      enabled: false
+    reactDoctor:
+      enabled: false
+    presidio:
+      enabled: false
+    blinter:
+      enabled: false
+    smartyLint:
+      enabled: false
+    emberTemplateLint:
+      enabled: false
+    skillspector:
+      enabled: false
+    psscriptanalyzer:
+      enabled: false
+    languagetool:
+      enabled: false
+    vale:
+      enabled: false
