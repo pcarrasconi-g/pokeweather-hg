@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PokeWeather · El clima y tu Pokémon compañero</title>
+  <meta name="description" content="Consulta el clima de cualquier lugar y conoce al Pokémon compañero que le corresponde. Proyecto fan sin fines de lucro.">
+  <meta name="theme-color" content="#4aa8ff" id="meta-theme">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body data-theme="day-clear">
+  <a class="skip" href="#main">Saltar al contenido</a>
+  <div class="sky" aria-hidden="true"><div class="sky-body"></div><div class="stars"></div><div class="clouds"></div><div class="fog"></div></div>
+  <div class="particles" id="particles" aria-hidden="true"></div>
+
+  <header class="top">
+    <div class="brand glass">
+      <img src="assets/pokeball.svg" alt="" width="32" height="32">
+      <h1>PokeWeather</h1>
+    </div>
+    <div class="unit glass" role="group" aria-label="Unidad de temperatura">
+      <button type="button" id="unit-c" aria-pressed="true">°C</button>
+      <button type="button" id="unit-f" aria-pressed="false">°F</button>
+    </div>
+  </header>
+
+  <main id="main" class="wrap" tabindex="-1">
+    <section class="search" aria-label="Buscar lugar">
+      <form id="search-form" role="search" autocomplete="off" novalidate>
+        <label for="q" class="sr-only">Busca una ciudad o lugar</label>
+        <div class="combo glass">
+          <span class="combo-icon" aria-hidden="true">🔎</span>
+          <input id="q" name="q" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false"
+                 aria-controls="results" aria-haspopup="listbox" aria-describedby="q-hint" aria-activedescendant=""
+                 placeholder="Busca una ciudad…" maxlength="80" spellcheck="false" autocapitalize="off">
+          <span id="search-spinner" class="spinner" hidden aria-hidden="true"></span>
+          <ul id="results" role="listbox" aria-label="Resultados de lugares" hidden></ul>
+        </div>
+        <p id="q-hint" class="sr-only">Escribe al menos 2 letras. Usa las flechas para elegir y Enter para confirmar.</p>
+        <button type="button" id="geo" class="btn btn-ghost glass"><span aria-hidden="true">📍</span> Usar mi ubicación</button>
+      </form>
+    </section>
+
+    <div id="inline-error" class="inline-error glass" role="alert" hidden>
+      <p id="inline-error-msg"></p>
+      <button type="button" id="inline-retry" class="btn btn-ghost">Reintentar</button>
+    </div>
+
+    <div id="live" class="sr-only" role="status" aria-live="polite"></div>
+
+    <section id="welcome" class="card glass center">
+      <img class="welcome-ball" src="assets/pokeball.svg" alt="" width="72" height="72">
+      <h2>¿Qué tiempo hace hoy… y quién te acompaña?</h2>
+      <p class="muted">Busca un lugar y descubre a tu Pokémon compañero según el clima. Puedes hacerlo tu amigo y ponerle apodo.</p>
+      <ul class="chips-row" aria-label="Lugares de ejemplo">
+        <li><button class="chip-btn" type="button" data-lat="40.42" data-lon="-3.70" data-name="Madrid, España">Madrid</button></li>
+        <li><button class="chip-btn" type="button" data-lat="-34.61" data-lon="-58.38" data-name="Buenos Aires, Argentina">Buenos Aires</button></li>
+        <li><button class="chip-btn" type="button" data-lat="35.68" data-lon="139.69" data-name="Tokio, Japón">Tokio</button></li>
+        <li><button class="chip-btn" type="button" data-lat="64.15" data-lon="-21.94" data-name="Reikiavik, Islandia">Reikiavik</button></li>
+        <li><button class="chip-btn" type="button" data-lat="19.43" data-lon="-99.13" data-name="Ciudad de México, México">Ciudad de México</button></li>
+      </ul>
+    </section>
+
+    <section id="loading" class="grid" hidden aria-hidden="true">
+      <div class="card glass skeleton-card"><div class="sk sk-line w60"></div><div class="sk sk-big"></div><div class="sk sk-line w40"></div></div>
+      <div class="card glass skeleton-card"><div class="sk sk-circle"></div><div class="sk sk-line w60"></div><div class="sk sk-line w40"></div></div>
+      <div class="card glass skeleton-card"><div class="sk sk-line w40"></div><div class="sk sk-line"></div><div class="sk sk-line"></div></div>
+    </section>
+
+    <section id="error" class="card glass center" hidden role="alert">
+      <h2 id="error-title" tabindex="-1">Algo salió mal</h2>
+      <p id="error-msg" class="muted"></p>
+      <button type="button" id="retry" class="btn btn-primary">Reintentar</button>
+    </section>
+
+    <div id="result" class="grid" hidden>
+      <article class="card glass now" aria-labelledby="loc-name">
+        <p class="eyebrow">Clima ahora</p>
+        <h2 id="loc-name" tabindex="-1"></h2>
+        <p id="loc-sub" class="muted"></p>
+        <div class="now-main">
+          <span id="w-icon" class="w-icon" aria-hidden="true"></span>
+          <div>
+            <p id="w-temp" class="temp"></p>
+            <p id="w-label" class="w-label"></p>
+          </div>
+        </div>
+        <dl class="stats">
+          <div><dt>Sensación</dt><dd id="w-feels"></dd></div>
+          <div><dt>Humedad</dt><dd id="w-hum"></dd></div>
+          <div><dt>Viento</dt><dd id="w-wind"></dd></div>
+        </dl>
+      </article>
+
+      <article class="card glass companion" aria-labelledby="poke-name">
+        <p class="eyebrow">Tu compañero de hoy</p>
+        <div class="stage">
+          <img id="poke-img" class="poke" alt="" width="240" height="240">
+          <span class="shadow" aria-hidden="true"></span>
+        </div>
+        <h3 id="poke-name"></h3>
+        <ul id="poke-types" class="types" aria-label="Tipos"></ul>
+        <p id="poke-reason" class="reason"></p>
+        <p id="poke-meta" class="muted small"></p>
+        <div class="actions">
+          <button type="button" id="reroll" class="btn btn-ghost"><span aria-hidden="true">🔄</span> Otro compañero</button>
+          <button type="button" id="befriend" class="btn btn-primary"><span aria-hidden="true">❤️</span> Hacerlo mi amigo</button>
+        </div>
+      </article>
+
+      <article class="card glass forecast" aria-labelledby="fc-title">
+        <p class="eyebrow" id="fc-title">Próximos días</p>
+        <ul id="forecast" class="days"></ul>
+      </article>
+    </div>
+
+    <section id="friend-card" class="card glass friend" hidden aria-labelledby="friend-title">
+      <p class="eyebrow" id="friend-title">Mi amigo</p>
+      <div class="friend-body">
+        <img id="friend-img" class="friend-img" alt="" width="96" height="96">
+        <div>
+          <h3 id="friend-nick"></h3>
+          <p id="friend-species" class="muted"></p>
+          <ul id="friend-types" class="types" aria-label="Tipos de mi amigo"></ul>
+          <p id="friend-where" class="muted small"></p>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" id="friend-edit" class="btn btn-ghost"><span aria-hidden="true">✏️</span> Editar apodo</button>
+        <button type="button" id="friend-release" class="btn btn-danger">Soltar</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot glass">
+    <p>Datos meteorológicos de <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo.com</a>
+      (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>) · Datos e imágenes de Pokémon vía
+      <a href="https://pokeapi.co/" target="_blank" rel="noopener noreferrer">PokéAPI</a>.</p>
+    <p class="small">Pokémon es marca de Nintendo, Creatures Inc. y GAME FREAK inc. PokeWeather es un proyecto fan sin fines de lucro, no afiliado ni respaldado por ellos.
+      Usa una cookie anónima (<code>pw_cid</code>) solo para recordar a tu amigo, y guarda en tu navegador (localStorage) tu preferencia de unidad de temperatura °C/°F.</p>
+  </footer>
+
+  <dialog id="friend-dialog" aria-labelledby="fd-title">
+    <form id="friend-form" method="dialog" novalidate>
+      <h2 id="fd-title">Ponle un apodo</h2>
+      <img id="fd-img" class="fd-img" alt="" width="160" height="160">
+      <p id="fd-desc" class="muted"></p>
+      <label for="nick">Apodo</label>
+      <input id="nick" name="nick" type="text" maxlength="24" autocomplete="off" aria-describedby="nick-count nick-err" aria-invalid="false" required>
+      <div class="field-meta"><p id="nick-err" class="err" role="alert"></p><p id="nick-count" class="muted small" aria-live="off">0/24</p></div>
+      <div class="actions">
+        <button type="button" id="fd-cancel" class="btn btn-ghost">Cancelar</button>
+        <button type="submit" id="fd-save" class="btn btn-primary">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirm-dialog" aria-labelledby="cd-title">
+    <form method="dialog" id="confirm-form">
+      <h2 id="cd-title">¿Soltar a tu amigo?</h2>
+      <p id="cd-text" class="muted"></p>
+      <p id="cd-err" class="err" role="alert"></p>
+      <div class="actions">
+        <button type="button" id="cd-cancel" class="btn btn-ghost">Cancelar</button>
+        <button type="submit" id="cd-ok" class="btn btn-danger">Soltar</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>
