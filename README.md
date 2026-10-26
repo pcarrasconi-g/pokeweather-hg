@@ -61,6 +61,10 @@ Hasta **24 caracteres** (tras recortar espacios en los extremos). Se admiten let
 - Tiempos: la API corta cada petición a los 12 s en total (presupuesto global sobre las llamadas upstream, 5 s cada una) y nginx espera 20 s, de modo que siempre llega un JSON `{error:{code:"upstream_timeout"}}`. nginx re-resuelve `api` por DNS (`resolver 127.0.0.11`), así que recrear la API no deja 502 permanentes.
 - CSP sin `data:` en `img-src`: las imágenes vienen de `self` y de `raw.githubusercontent.com`.
 
+## Revisión con CodeRabbit
+
+La configuración está en `.coderabbit.yaml` (revisión en en-US, perfil `chill`, con checks de secretos, SQL parametrizado, hardening de contenedores y CSP). Para que CodeRabbit comente en los PR, el dueño del repositorio debe instalar la GitHub App de CodeRabbit.
+
 ## Atribuciones
 
 - Datos meteorológicos y geocodificación: [Open-Meteo.com](https://open-meteo.com/) — licencia [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
