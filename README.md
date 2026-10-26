@@ -15,6 +15,8 @@ docker compose ps           # db, api y web deben estar "healthy"
 
 Abre <http://127.0.0.1:8731>.
 
+Para confirmar rápidamente que el servicio responde, visita <http://127.0.0.1:8731/api/health>; debe devolver `{"status":"ok","db":"up"}`.
+
 Parar: `docker compose down` (conserva los datos).
 **`docker compose down -v` borra el volumen `pgdata` y, con él, todos los amigos guardados.**
 
